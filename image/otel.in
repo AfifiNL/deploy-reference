@@ -1,0 +1,6 @@
+# OpenTelemetry auto-instrumentation added to the service image at build time. Compiled with
+# hashes against the service's own lock file (constraints), so no service dependency changes:
+#   make otel-requirements
+opentelemetry-distro
+opentelemetry-exporter-otlp-proto-http
+opentelemetry-instrumentation-fastapi

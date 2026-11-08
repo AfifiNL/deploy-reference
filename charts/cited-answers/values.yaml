@@ -1,0 +1,118 @@
+# Defaults are safe for any cluster: two replicas, autoscaling on CPU, non-root, read-only root
+# filesystem, an in-cluster OpenTelemetry collector. values-kind.yaml adapts them to kind.
+
+image:
+  repository: cited-answers
+  tag: "1005c3a"
+  # Pin by digest in real clusters (repository@sha256:...); takes precedence over tag.
+  digest: ""
+  pullPolicy: IfNotPresent
+
+replicaCount: 2            # used only when autoscaling is disabled
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  scaleDownStabilizationSeconds: 300
+
+podDisruptionBudget:
+  enabled: true
+  maxUnavailable: 1        # never blocks a node drain, even with a single replica
+
+# Spread replicas over nodes when the scheduler can (soft: never blocks scheduling).
+topologySpread:
+  enabled: true
+  maxSkew: 1
+
+service:
+  type: ClusterIP
+  port: 80
+
+containerPort: 8000
+
+# Service settings (environment variables of the app). Offline and free by default.
+env:
+  CA_PROVIDER: mock
+  CA_EMBEDDER: hash
+  CA_STORE: memory
+extraEnv: {}
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 384Mi
+  limits:
+    memory: 768Mi
+
+probes:
+  startup:
+    path: /healthz
+    periodSeconds: 2
+    timeoutSeconds: 3
+    failureThreshold: 60
+  readiness:
+    path: /readyz
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+  liveness:
+    path: /healthz
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# A terminating pod keeps serving for this long, so endpoints and load balancers stop routing
+# to it before it exits (zero failed requests during a rolling update).
+preStopSleepSeconds: 5
+terminationGracePeriodSeconds: 30
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+otel:
+  enabled: true
+  serviceName: cited-answers
+  environment: dev
+  collector:
+    image:
+      repository: otel/opentelemetry-collector
+      tag: "0.165.0"
+      digest: "sha256:34b24b740c3c88d3467740e8642a397c13898ef76d7295c5425164c482ed1b73"
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
+    # Where traces and metrics go. `debugExporter` prints them to the collector's log (what the
+    # end-to-end run checks). For a real backend set `debugExporter: false` and add, e.g.:
+    #   exporters:
+    #     otlphttp:
+    #       endpoint: https://otel.example.com
+    debugExporter: true
+    exporters: {}
+
+tests:
+  image:
+    repository: curlimages/curl
+    tag: "8.23.0"
+    digest: "sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93"
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

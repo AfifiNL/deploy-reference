@@ -1,0 +1,89 @@
+{{- if .Values.otel.enabled }}
+{{- $name := include "ca.collector" . }}
+{{- $exporters := deepCopy (.Values.otel.collector.exporters | default dict) }}
+{{- if and .Values.otel.collector.debugExporter (not (hasKey $exporters "debug")) }}
+{{- $_ := set $exporters "debug" (dict "verbosity" "detailed") }}
+{{- end }}
+{{- if not $exporters }}
+{{- fail "otel.collector needs at least one exporter (debugExporter or exporters)" }}
+{{- end }}
+{{- $config := include "ca.collectorConfig" (dict "exporters" $exporters) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "ca.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-collector
+data:
+  config.yaml: |
+    {{- $config | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "ca.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: otel-collector
+  template:
+    metadata:
+      labels:
+        {{- include "ca.labels" . | nindent 8 }}
+        app.kubernetes.io/component: otel-collector
+      annotations:
+        checksum/config: {{ $config | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: collector
+          image: {{ include "ca.image" .Values.otel.collector.image | quote }}
+          args: ["--config=/conf/config.yaml"]
+          ports:
+            - {name: otlp-http, containerPort: 4318}
+            - {name: otlp-grpc, containerPort: 4317}
+          readinessProbe:
+            httpGet: {path: /, port: 13133}
+          livenessProbe:
+            httpGet: {path: /, port: 13133}
+          resources:
+            {{- toYaml .Values.otel.collector.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: conf
+              mountPath: /conf
+      volumes:
+        - name: conf
+          configMap:
+            name: {{ $name }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "ca.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-collector
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: otel-collector
+  ports:
+    - {name: otlp-http, port: 4318, targetPort: otlp-http}
+    - {name: otlp-grpc, port: 4317, targetPort: otlp-grpc}
+{{- end }}

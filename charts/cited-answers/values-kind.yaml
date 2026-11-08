@@ -1,0 +1,11 @@
+# Local kind cluster: the image is loaded with `kind load docker-image`, never pulled.
+image:
+  pullPolicy: Never
+otel:
+  environment: kind
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 768Mi

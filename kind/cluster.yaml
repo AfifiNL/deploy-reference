@@ -1,0 +1,9 @@
+# Local cluster for the end-to-end run: one control plane, two workers, so a rolling update and
+# the PodDisruptionBudget have somewhere to move pods. Node image: kind v0.33.0's pinned default.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: deploy-reference
+nodes:
+  - role: control-plane
+  - role: worker
+  - role: worker

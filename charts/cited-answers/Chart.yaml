@@ -1,0 +1,7 @@
+apiVersion: v2
+name: cited-answers
+description: A cited question-answering API with OpenTelemetry, autoscaling and a rollback-safe release.
+type: application
+version: 0.1.0
+appVersion: "1005c3a"
+kubeVersion: ">=1.29.0-0"

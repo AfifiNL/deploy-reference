@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "ca.fullname" . }}-test-answer
+  labels:
+    {{- include "ca.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: answer
+      image: {{ include "ca.image" .Values.tests.image | quote }}
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      command: ["sh", "-ec"]
+      args:
+        - |
+          base=http://{{ include "ca.fullname" . }}:{{ .Values.service.port }}
+          curl -fsS "$base/readyz"
+          echo
+          out=$(curl -fsS "$base/v1/answer" -H 'content-type: application/json' \
+            -d '{"question": "When must a controller notify a personal data breach?"}')
+          echo "$out" | grep -q '"status":"answered"'
+          echo "$out" | grep -q 'Article 33'
+          echo "answered with a citation to Article 33"
