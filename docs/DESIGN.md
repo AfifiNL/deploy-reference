@@ -91,5 +91,5 @@ the service lock file they were compiled against, and the build refuses any othe
   whether AWS accepts every combination at apply time.
 - The end-to-end run uses kind; cloud load balancers, IAM roles for service accounts, real
   network policies and node autoscaling are not exercised.
-- The e2e workflow is not run in GitHub Actions (minutes on private repositories are limited);
-  it runs locally with `make e2e`.
+- The e2e workflow is not run in GitHub Actions; it runs locally with `make e2e` (it builds the
+  image and starts a three-node cluster, a few minutes on one machine).
